@@ -61,25 +61,34 @@ impl Game{
     }
 
     pub fn print(&self){
+        let character = "@";
+        let repeated = character.repeat(self.matrix[0].len() + 2);
+        print!("\x1B[2J\x1B[1;1H");
+
         for i in 0..self.matrix.len() {
+            print!("@");
             for j in 0..self.matrix[i].len() {
-                print!("{0}", self.matrix[i].get(j).unwrap())
+                if(*self.matrix[i].get(j).unwrap() == 1){
+                    print!("█");
+                }
+                else {
+                    print!(".")
+                }
             }
+            print!("@");
             println!()
         }
+        println!("{}", repeated);
+
     }
 
     pub fn run(&mut self){
-        let character = "-";
-        let repeated = character.repeat(self.matrix[0].len());
-        println!("{}", repeated);
-
         while self.check_neighbors() {
-            print!("\x1B[2J\x1B[1;1H");
             &self.print();
-            println!("{}", repeated);
             thread::sleep(Duration::from_millis(400));
         }
+
+        &self.print();
         println!("No alive cells lefr")
     }
 
