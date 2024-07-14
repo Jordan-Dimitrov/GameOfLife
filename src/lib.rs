@@ -69,22 +69,62 @@ impl Game{
         }
     }
 
-    pub fn run(&self){
-        while true {
+    pub fn run(&mut self){
+        let character = "-";
+        let repeated = character.repeat(self.matrix[0].len());
+        println!("{}", repeated);
+
+        while self.check_neighbors() {
             print!("\x1B[2J\x1B[1;1H");
             &self.print();
-
+            println!("{}", repeated);
             thread::sleep(Duration::from_millis(400));
         }
+        println!("No alive cells lefr")
     }
 
-    pub fn check_neighbors(&mut self){
-        let old_gen = &self.matrix.clone();
+    pub fn check_neighbors(&mut self) -> bool {
+        let height = self.matrix.len();
+        let width = self.matrix[0].len();
+        let mut next_gen = self.matrix.clone();
+        let mut any_alive = false;
 
-        for i in 0..self.matrix.len() {
-            for j in 0..self.matrix[i].len() {
+        for i in 0..height {
+            for j in 0..width {
+                let mut alive = 0;
 
+                for f in [-1, 0, 1].iter() {
+                    for d in [-1, 0, 1].iter() {
+                        if *f == 0 && *d == 0 {
+                            continue;
+                        }
+
+                        let ni = i as isize + f;
+                        let nj = j as isize + d;
+
+                        if ni >= 0 && nj >= 0 && ni < height as isize && nj < width as isize {
+                            alive += self.matrix[ni as usize][nj as usize];
+                        }
+                    }
+                }
+
+                let current = self.matrix[i][j];
+
+                if current == 1 && (alive < 2 || alive > 3) {
+                    next_gen[i][j] = 0;
+                } else if current == 0 && alive == 3 {
+                    next_gen[i][j] = 1;
+                } else {
+                    next_gen[i][j] = current;
+                }
+
+                if next_gen[i][j] == 1 {
+                    any_alive = true;
+                }
             }
         }
+
+        self.matrix = next_gen;
+        any_alive
     }
 }

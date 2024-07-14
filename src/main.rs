@@ -7,7 +7,7 @@ fn main() {
         process::exit(1);
     });
 
-    let game = Game::new(config);
+    let mut game = Game::new(config);
 
     game.run();
 }
