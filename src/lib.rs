@@ -1,39 +1,20 @@
-use std::{env, thread};
+use std::{thread};
+use std::io::{stdout, Write};
 use std::time::Duration;
 use rand::Rng;
+use crossterm::{ExecutableCommand, QueueableCommand};
+use crossterm::cursor::{Hide, MoveTo};
+use crossterm::terminal::{Clear, ClearType};
 
-pub struct Config {
-    pub width: usize,
-    pub height: usize
-}
+pub mod config;
+pub use config::Config;
 
-impl Config{
-    pub fn new(mut args: env::Args) -> Result<Config, &'static str>{
-        args.next();
-
-        let width:usize = match  args.next()
-        {
-            Some(x) => match x.parse(){
-                Ok(x) => x,
-                Err(_) => return Err("Invalid type")
-            },
-            None => return Err("No width passed"),
-        };
-
-        let height:usize = match  args.next()
-        {
-            Some(x) => match x.parse(){
-                Ok(x) => x,
-                Err(_) => return Err("Invalid type")
-            },
-            None => return Err("No height passed"),
-        };
-
-        Ok(Config {
-            width,
-            height
-        })
-    }
+fn clear_console() {
+    let mut out = stdout();
+    out.queue(Hide).unwrap();
+    out.queue(Clear(ClearType::All)).unwrap();
+    out.queue(MoveTo(0, 0)).unwrap();
+    out.flush().unwrap();
 }
 
 pub struct Game{
@@ -60,10 +41,12 @@ impl Game{
         }
     }
 
-    pub fn print(&self){
+    fn print(&self){
+        clear_console();
+
         let character = "@";
         let repeated = character.repeat(self.matrix[0].len() + 2);
-        print!("\x1B[2J\x1B[1;1H");
+        println!("{}", repeated);
 
         for i in 0..self.matrix.len() {
             print!("@");
@@ -79,7 +62,6 @@ impl Game{
             println!()
         }
         println!("{}", repeated);
-
     }
 
     pub fn run(&mut self){
@@ -92,7 +74,7 @@ impl Game{
         println!("No alive cells lefr")
     }
 
-    pub fn check_neighbors(&mut self) -> bool {
+    fn check_neighbors(&mut self) -> bool {
         let height = self.matrix.len();
         let width = self.matrix[0].len();
         let mut next_gen = self.matrix.clone();
