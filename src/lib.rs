@@ -16,32 +16,50 @@ fn clear_console() {
     out.queue(MoveTo(0, 0)).unwrap();
     out.flush().unwrap();
 }
+#[derive(Clone, Copy, PartialEq)]
+enum Status{
+    Alive,
+    Dead
+}
+
+impl Status{
+    fn new(num: i32) -> Self{
+        if num != 0 {
+            Status::Alive
+        }
+        else{
+            Status::Dead
+        }
+    }
+}
 
 pub struct Game{
-    matrix : Vec<Vec<i32>>
+    matrix : Vec<Vec<Status>>,
+    speed : u64
 }
 
 impl Game{
     pub fn new(config: Config) -> Game{
-        let mut matrix: Vec<Vec<i32>> = vec![];
+        let mut matrix: Vec<Vec<Status>> = vec![];
 
         for _ in 0..config.height {
-            let mut row = vec![0; config.width];
+            let mut row : Vec<Status> = vec![];
 
-            for i in 0..row.len() {
+            for _ in 0..config.width {
                 let secret_number = rand::thread_rng().gen_range(0..=1);
-                row[i] = secret_number;
+                row.push(Status::new(secret_number));
             }
 
             matrix.push(row);
         }
 
         Game{
-            matrix
+            matrix,
+            speed: 400
         }
     }
 
-    fn print(&self){
+    pub fn print(&self){
         clear_console();
 
         let character = "@";
@@ -49,16 +67,15 @@ impl Game{
         println!("{}", repeated);
 
         for i in 0..self.matrix.len() {
-            print!("@");
+            print!("{0}", character);
             for j in 0..self.matrix[i].len() {
-                if(*self.matrix[i].get(j).unwrap() == 1){
-                    print!("█");
-                }
-                else {
-                    print!(".")
-                }
+                let symbol = match self.matrix[i][j]{
+                    Status::Alive => "█",
+                    Status::Dead => "."
+                };
+                print!("{0}", symbol);
             }
-            print!("@");
+            print!("{0}", character);
             println!()
         }
         println!("{}", repeated);
@@ -66,11 +83,11 @@ impl Game{
 
     pub fn run(&mut self){
         while self.check_neighbors() {
-            &self.print();
-            thread::sleep(Duration::from_millis(400));
+            self.print();
+            thread::sleep(Duration::from_millis(self.speed));
         }
 
-        &self.print();
+        self.print();
         println!("No alive cells lefr")
     }
 
@@ -93,23 +110,27 @@ impl Game{
                         let ni = i as isize + f;
                         let nj = j as isize + d;
 
-                        if ni >= 0 && nj >= 0 && ni < height as isize && nj < width as isize {
-                            alive += self.matrix[ni as usize][nj as usize];
+                        if ni > 0 && nj > 0 && ni < height as isize && nj < width as isize {
+                            alive += match self.matrix[ni as usize][nj as usize]
+                            {
+                                Status::Alive => 1,
+                                Status::Dead => 0
+                            };
                         }
                     }
                 }
 
                 let current = self.matrix[i][j];
 
-                if current == 1 && (alive < 2 || alive > 3) {
-                    next_gen[i][j] = 0;
-                } else if current == 0 && alive == 3 {
-                    next_gen[i][j] = 1;
+                if current == Status::Alive && (alive < 2 || alive > 3) {
+                    next_gen[i][j] = Status::Dead;
+                } else if current == Status::Dead && alive == 3 {
+                    next_gen[i][j] = Status::Alive;
                 } else {
                     next_gen[i][j] = current;
                 }
 
-                if next_gen[i][j] == 1 {
+                if next_gen[i][j] == Status::Alive {
                     any_alive = true;
                 }
             }
