@@ -1,8 +1,10 @@
-use std::{thread};
+use std::{io, thread};
 use std::io::{stdout, Write};
+use std::process::exit;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use rand::Rng;
-use crossterm::{ExecutableCommand, QueueableCommand};
+use crossterm::{QueueableCommand};
 use crossterm::cursor::{Hide, MoveTo};
 use crossterm::terminal::{Clear, ClearType};
 
@@ -22,6 +24,22 @@ enum Status{
     Dead
 }
 
+enum GameState{
+    Paused,
+    Running,
+    Stopped
+}
+
+impl GameState{
+    fn new(input : &str) -> Self{
+        match input.trim() {
+            "r" => GameState::Running,
+            "s" => GameState::Stopped,
+            _ => GameState::Paused,
+        }
+    }
+}
+
 impl Status{
     fn new(num: i32) -> Self{
         if num != 0 {
@@ -35,7 +53,8 @@ impl Status{
 
 pub struct Game{
     matrix : Vec<Vec<Status>>,
-    speed : u64
+    speed : u64,
+    state: Arc<Mutex<GameState>>
 }
 
 impl Game{
@@ -55,7 +74,8 @@ impl Game{
 
         Game{
             matrix,
-            speed: 400
+            speed: 1000,
+            state: Arc::new(Mutex::new(GameState::Running))
         }
     }
 
@@ -82,7 +102,34 @@ impl Game{
     }
 
     pub fn run(&mut self){
+        let state1 = Arc::clone(&self.state);
+        let state2 = Arc::clone(&self.state);
+
+        thread::spawn(move ||{
+            loop {
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)
+                    .unwrap();
+
+                let arc_state = Arc::clone(&state1);
+
+                let mut state = arc_state.lock().unwrap();
+
+                *state = GameState::new(&input);
+            }
+        });
         while self.check_neighbors() {
+            let arc_state = Arc::clone(&state2);
+
+            let state = arc_state.lock().unwrap();
+
+            match *state
+            {
+                GameState::Stopped => exit(1),
+                GameState::Paused => continue,
+                GameState::Running => ()
+            }
+
             self.print();
             thread::sleep(Duration::from_millis(self.speed));
         }
