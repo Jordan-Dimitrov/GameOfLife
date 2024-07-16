@@ -4,20 +4,13 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use rand::Rng;
-use crossterm::{QueueableCommand};
-use crossterm::cursor::{Hide, MoveTo};
-use crossterm::terminal::{Clear, ClearType};
-
+use crossterm::{event, QueueableCommand};
+use crossterm::event::{Event, KeyCode, KeyEvent, poll};
 pub mod config;
+pub mod ui;
 pub use config::Config;
+pub use ui::clear_console;
 
-fn clear_console() {
-    let mut out = stdout();
-    out.queue(Hide).unwrap();
-    out.queue(Clear(ClearType::All)).unwrap();
-    out.queue(MoveTo(0, 0)).unwrap();
-    out.flush().unwrap();
-}
 #[derive(Clone, Copy, PartialEq)]
 enum Status{
     Alive,
@@ -31,22 +24,21 @@ enum GameState{
 }
 
 impl GameState{
-    fn new(input : &str) -> Self{
-        match input.trim() {
-            "r" => GameState::Running,
-            "s" => GameState::Stopped,
-            _ => GameState::Paused,
+    fn new(input : KeyCode) -> Self{
+        match input {
+            KeyCode::Char('s') => GameState::Stopped,
+            KeyCode::Char('p') => GameState::Paused,
+            _ => GameState::Running,
         }
     }
 }
 
 impl Status{
     fn new(num: i32) -> Self{
-        if num != 0 {
-            Status::Alive
-        }
-        else{
-            Status::Dead
+        match num
+        {
+             x if x <= 0 => Status::Dead,
+             _ => Status::Alive
         }
     }
 }
@@ -74,31 +66,9 @@ impl Game{
 
         Game{
             matrix,
-            speed: 1000,
+            speed: 400,
             state: Arc::new(Mutex::new(GameState::Running))
         }
-    }
-
-    pub fn print(&self){
-        clear_console();
-
-        let character = "@";
-        let repeated = character.repeat(self.matrix[0].len() + 2);
-        println!("{}", repeated);
-
-        for i in 0..self.matrix.len() {
-            print!("{0}", character);
-            for j in 0..self.matrix[i].len() {
-                let symbol = match self.matrix[i][j]{
-                    Status::Alive => "█",
-                    Status::Dead => "."
-                };
-                print!("{0}", symbol);
-            }
-            print!("{0}", character);
-            println!()
-        }
-        println!("{}", repeated);
     }
 
     pub fn run(&mut self){
@@ -107,15 +77,15 @@ impl Game{
 
         thread::spawn(move ||{
             loop {
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)
-                    .unwrap();
-
                 let arc_state = Arc::clone(&state1);
 
                 let mut state = arc_state.lock().unwrap();
 
-                *state = GameState::new(&input);
+                if poll(Duration::from_millis(100)).unwrap() {
+                    if let Event::Key(KeyEvent { code, modifiers: _, .. }) = event::read().unwrap() {
+                        *state = GameState::new(code);
+                    }
+                }
             }
         });
         while self.check_neighbors() {
@@ -125,7 +95,7 @@ impl Game{
 
             match *state
             {
-                GameState::Stopped => exit(1),
+                GameState::Stopped => exit(0),
                 GameState::Paused => continue,
                 GameState::Running => ()
             }
