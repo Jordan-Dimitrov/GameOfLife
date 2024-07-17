@@ -20,7 +20,9 @@ enum Status{
 enum GameState{
     Paused,
     Running,
-    Stopped
+    Stopped,
+    SpeedUp,
+    SpeedDown
 }
 
 impl GameState{
@@ -28,6 +30,8 @@ impl GameState{
         match input {
             KeyCode::Char('s') => GameState::Stopped,
             KeyCode::Char('p') => GameState::Paused,
+            KeyCode::Char('u') => GameState::SpeedUp,
+            KeyCode::Char('d') => GameState::SpeedDown,
             _ => GameState::Running,
         }
     }
@@ -81,7 +85,7 @@ impl Game{
 
                 let mut state = arc_state.lock().unwrap();
 
-                if poll(Duration::from_millis(100)).unwrap() {
+                if poll(Duration::from_millis(50)).unwrap() {
                     if let Event::Key(KeyEvent { code, modifiers: _, .. }) = event::read().unwrap() {
                         *state = GameState::new(code);
                     }
@@ -91,13 +95,23 @@ impl Game{
         while self.check_neighbors() {
             let arc_state = Arc::clone(&state2);
 
-            let state = arc_state.lock().unwrap();
+            let mut state = arc_state.lock().unwrap();
 
             match *state
             {
                 GameState::Stopped => exit(0),
                 GameState::Paused => continue,
-                GameState::Running => ()
+                GameState::SpeedUp => {
+                    *state = GameState::Running;
+                    if self.speed >= 100 {
+                        self.speed -= 100
+                    }
+                },
+                GameState::SpeedDown => {
+                    *state = GameState::Running;
+                    self.speed += 100
+                },
+                GameState::Running => (),
             }
 
             self.print();
