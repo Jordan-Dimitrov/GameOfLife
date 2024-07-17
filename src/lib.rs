@@ -1,51 +1,17 @@
-use std::{io, thread};
-use std::io::{stdout, Write};
+use std::{thread};
+use std::io::{Write};
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use rand::Rng;
 use crossterm::{event, QueueableCommand};
-use crossterm::event::{Event, KeyCode, KeyEvent, poll};
+use crossterm::event::{Event, KeyEvent, poll};
 pub mod config;
 pub mod ui;
+pub mod state;
 pub use config::Config;
 pub use ui::clear_console;
-
-#[derive(Clone, Copy, PartialEq)]
-enum Status{
-    Alive,
-    Dead
-}
-
-enum GameState{
-    Paused,
-    Running,
-    Stopped,
-    SpeedUp,
-    SpeedDown
-}
-
-impl GameState{
-    fn new(input : KeyCode) -> Self{
-        match input {
-            KeyCode::Char('s') => GameState::Stopped,
-            KeyCode::Char('p') => GameState::Paused,
-            KeyCode::Char('u') => GameState::SpeedUp,
-            KeyCode::Char('d') => GameState::SpeedDown,
-            _ => GameState::Running,
-        }
-    }
-}
-
-impl Status{
-    fn new(num: i32) -> Self{
-        match num
-        {
-             x if x <= 0 => Status::Dead,
-             _ => Status::Alive
-        }
-    }
-}
+pub use state::*;
 
 pub struct Game{
     matrix : Vec<Vec<Status>>,
@@ -92,7 +58,7 @@ impl Game{
                 }
             }
         });
-        while self.check_neighbors() {
+        loop {
             let arc_state = Arc::clone(&state2);
 
             let mut state = arc_state.lock().unwrap();
@@ -100,7 +66,11 @@ impl Game{
             match *state
             {
                 GameState::Stopped => exit(0),
-                GameState::Paused => continue,
+                GameState::Paused =>
+                    {
+                        drop(state);
+                        continue;
+                    },
                 GameState::SpeedUp => {
                     *state = GameState::Running;
                     if self.speed >= 100 {
@@ -114,12 +84,18 @@ impl Game{
                 GameState::Running => (),
             }
 
+            drop(state);
+
+            if !self.check_neighbors(){
+                break;
+            }
+
             self.print();
             thread::sleep(Duration::from_millis(self.speed));
         }
 
         self.print();
-        println!("No alive cells lefr")
+        println!("No alive cells left")
     }
 
     fn check_neighbors(&mut self) -> bool {
